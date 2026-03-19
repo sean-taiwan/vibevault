@@ -14,12 +14,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Inject Fernet Key
-        run: python3 -c "
-import pathlib
-html = pathlib.Path('index.html').read_text(encoding='utf-8')
-html = html.replace('__FERNET_KEY__', '${{ secrets.FERNET_KEY }}')
-pathlib.Path('index.html').write_text(html, encoding='utf-8')
-"
+        env:
+          FERNET_KEY: ${{ secrets.FERNET_KEY }}
+        run: |
+          python3 - <<'EOF'
+          import pathlib, os
+          html = pathlib.Path('index.html').read_text(encoding='utf-8')
+          html = html.replace('__FERNET_KEY__', os.environ['FERNET_KEY'])
+          pathlib.Path('index.html').write_text(html, encoding='utf-8')
+          EOF
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
