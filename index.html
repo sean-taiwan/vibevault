@@ -87,7 +87,7 @@
   }
   .result-item .result-label {
     font-size: 0.75rem;
-    color: #666;
+    color: #aaa;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 0.3rem;
@@ -252,6 +252,14 @@ async function runCrypto() {
     plainResult.textContent = msg;
     plainResult.className = 'result-value error';
     tokenResult.textContent = msg;
+    tokenResult.className = 'result-value error';
+    return;
+  }
+
+  if (!plainInput && !tokenInput) {
+    plainResult.textContent = '請在上方輸入明文或 Token';
+    plainResult.className = 'result-value error';
+    tokenResult.textContent = '請在上方輸入明文或 Token';
     tokenResult.className = 'result-value error';
     return;
   }
