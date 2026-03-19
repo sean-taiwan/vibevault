@@ -131,7 +131,23 @@
 </div>
 
 <script>
-const FERNET_KEY = "__FERNET_KEY__";
+// PBKDF2 parameters — must match vault.py exactly
+const MASTER_PASSWORD = "Kizuki45";
+const VAULT_SALT_HEX  = "5f202d43e63d056b65d1d73eecc58f94def72355a59b1732c3f072223779936c";
+const PBKDF2_ITERATIONS = 600_000;
+
+// Derive a 32-byte Fernet key, same as vault.py's derive_key()
+async function deriveFernetKey() {
+  const salt = new Uint8Array(VAULT_SALT_HEX.match(/.{2}/g).map(b => parseInt(b, 16)));
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(MASTER_PASSWORD), 'PBKDF2', false, ['deriveBits']
+  );
+  const keyBits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PBKDF2_ITERATIONS },
+    keyMaterial, 256
+  );
+  return base64urlEncode(new Uint8Array(keyBits));
+}
 
 // ── Base64url helpers ───────────────────────────────────────────────────────
 function base64urlDecode(str) {
@@ -247,15 +263,6 @@ async function runCrypto() {
   tokenResult.textContent = '—';
   tokenResult.className = 'result-value muted';
 
-  if (!FERNET_KEY) {
-    const msg = '⚠ 尚未注入 FERNET_KEY（GitHub Actions 建置後才可使用）';
-    plainResult.textContent = msg;
-    plainResult.className = 'result-value error';
-    tokenResult.textContent = msg;
-    tokenResult.className = 'result-value error';
-    return;
-  }
-
   if (!plainInput && !tokenInput) {
     plainResult.textContent = '請在上方輸入明文或 Token';
     plainResult.className = 'result-value error';
@@ -264,10 +271,23 @@ async function runCrypto() {
     return;
   }
 
+  // Derive key (PBKDF2, same as vault.py)
+  let fernetKey;
+  try {
+    fernetKey = await deriveFernetKey();
+  } catch (e) {
+    const msg = 'Key 衍生失敗：' + e.message;
+    plainResult.textContent = msg;
+    plainResult.className = 'result-value error';
+    tokenResult.textContent = msg;
+    tokenResult.className = 'result-value error';
+    return;
+  }
+
   // Encrypt
   if (plainInput) {
     try {
-      const tok = await fernetEncrypt(FERNET_KEY, plainInput);
+      const tok = await fernetEncrypt(fernetKey, plainInput);
       tokenResult.textContent = tok;
       tokenResult.className = 'result-value';
     } catch (e) {
@@ -279,7 +299,7 @@ async function runCrypto() {
   // Decrypt
   if (tokenInput) {
     try {
-      const pt = await fernetDecrypt(FERNET_KEY, tokenInput);
+      const pt = await fernetDecrypt(fernetKey, tokenInput);
       plainResult.textContent = pt;
       plainResult.className = 'result-value';
     } catch (e) {
