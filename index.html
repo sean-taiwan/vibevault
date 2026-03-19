@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VibeVault Web Tool</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  .card {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 560px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+  h1 span { color: #7c6af7; }
+  hr {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 1.2rem 0;
+  }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 1rem;
+    font-family: 'Courier New', monospace;
+    transition: border-color 0.2s;
+  }
+  input:focus { outline: none; border-color: #7c6af7; }
+  .btn {
+    display: block;
+    width: 100%;
+    background: #7c6af7;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.7rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin: 0.5rem 0 1.2rem;
+  }
+  .btn:hover { background: #6a58e6; }
+  .result-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .result-item {
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+  }
+  .result-item .result-label {
+    font-size: 0.75rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3rem;
+  }
+  .result-item .result-value {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+    color: #b8f5b8;
+    min-height: 1.2em;
+  }
+  .result-item .result-value.error { color: #f5b8b8; }
+  .result-item .result-value.muted { color: #555; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Vibe<span>Vault</span> Web Tool</h1>
+  <hr>
+
+  <label for="plainInput">明文密碼輸入</label>
+  <input type="text" id="plainInput" placeholder="輸入要加密的明文...">
+
+  <label for="tokenInput">Fernet Token 輸入</label>
+  <input type="text" id="tokenInput" placeholder="輸入 gAAAAAB... token 以解密">
+
+  <button class="btn" onclick="runCrypto()">🔐 加解密</button>
+
+  <hr>
+
+  <div class="result-row">
+    <div class="result-item">
+      <div class="result-label">明文結果（解密輸出）</div>
+      <div class="result-value muted" id="plainResult">—</div>
+    </div>
+    <div class="result-item">
+      <div class="result-label">Token 結果（加密輸出）</div>
+      <div class="result-value muted" id="tokenResult">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const FERNET_KEY = "__FERNET_KEY__";
+
+// ── Base64url helpers ───────────────────────────────────────────────────────
+function base64urlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const bin = atob(str);
+  return Uint8Array.from(bin, c => c.charCodeAt(0));
+}
+
+function base64urlEncode(bytes) {
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// ── Fernet Encrypt ──────────────────────────────────────────────────────────
+// Returns base64url Fernet token string
+async function fernetEncrypt(keyB64url, plaintext) {
+  const keyBytes = base64urlDecode(keyB64url);
+  if (keyBytes.length !== 32) throw new Error('Key must be 32 bytes');
+
+  const signingKey  = keyBytes.slice(0, 16);
+  const encryptKey  = keyBytes.slice(16, 32);
+
+  // AES-128-CBC requires 16-byte key — import
+  const aesKey = await crypto.subtle.importKey(
+    'raw', encryptKey, { name: 'AES-CBC' }, false, ['encrypt']
+  );
+
+  // Random IV
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+
+  // Timestamp — seconds since epoch, big-endian 8 bytes
+  const now = Math.floor(Date.now() / 1000);
+  const tsBuf = new Uint8Array(8);
+  const tsView = new DataView(tsBuf.buffer);
+  tsView.setUint32(0, Math.floor(now / 0x100000000), false);
+  tsView.setUint32(4, now >>> 0, false);
+
+  // Encrypt
+  const ptBytes = new TextEncoder().encode(plaintext);
+  const ctBuf   = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, aesKey, ptBytes);
+  const ct      = new Uint8Array(ctBuf);
+
+  // Build payload for HMAC: version(1) + ts(8) + iv(16) + ct
+  const payload = new Uint8Array(1 + 8 + 16 + ct.length);
+  payload[0] = 0x80;
+  payload.set(tsBuf, 1);
+  payload.set(iv, 9);
+  payload.set(ct, 25);
+
+  // HMAC-SHA256
+  const hmacKey = await crypto.subtle.importKey(
+    'raw', signingKey,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign']
+  );
+  const sigBuf = await crypto.subtle.sign('HMAC', hmacKey, payload);
+  const sig    = new Uint8Array(sigBuf);
+
+  // Final token = payload + HMAC(32B)
+  const token = new Uint8Array(payload.length + 32);
+  token.set(payload);
+  token.set(sig, payload.length);
+
+  return base64urlEncode(token);
+}
+
+// ── Fernet Decrypt ──────────────────────────────────────────────────────────
+async function fernetDecrypt(keyB64url, tokenStr) {
+  const keyBytes = base64urlDecode(keyB64url);
+  if (keyBytes.length !== 32) throw new Error('Key must be 32 bytes');
+
+  const signingKey = keyBytes.slice(0, 16);
+  const encryptKey = keyBytes.slice(16, 32);
+
+  const token = base64urlDecode(tokenStr);
+  if (token.length < 57) throw new Error('Token too short');
+  if (token[0] !== 0x80) throw new Error('Invalid Fernet version');
+
+  const payload = token.slice(0, token.length - 32);
+  const sigGiven = token.slice(token.length - 32);
+
+  // Verify HMAC
+  const hmacKey = await crypto.subtle.importKey(
+    'raw', signingKey,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['verify']
+  );
+  const valid = await crypto.subtle.verify('HMAC', hmacKey, sigGiven, payload);
+  if (!valid) throw new Error('HMAC verification failed — wrong key?');
+
+  const iv = payload.slice(9, 25);
+  const ct = payload.slice(25);
+
+  const aesKey = await crypto.subtle.importKey(
+    'raw', encryptKey, { name: 'AES-CBC' }, false, ['decrypt']
+  );
+  const ptBuf = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, aesKey, ct);
+  return new TextDecoder().decode(ptBuf);
+}
+
+// ── UI ──────────────────────────────────────────────────────────────────────
+async function runCrypto() {
+  const plainInput = document.getElementById('plainInput').value.trim();
+  const tokenInput = document.getElementById('tokenInput').value.trim();
+  const plainResult = document.getElementById('plainResult');
+  const tokenResult = document.getElementById('tokenResult');
+
+  // Reset
+  plainResult.textContent = '—';
+  plainResult.className = 'result-value muted';
+  tokenResult.textContent = '—';
+  tokenResult.className = 'result-value muted';
+
+  if (!FERNET_KEY || FERNET_KEY === '__FERNET_KEY__') {
+    const msg = '⚠ 尚未注入 FERNET_KEY（GitHub Actions 建置後才可使用）';
+    plainResult.textContent = msg;
+    plainResult.className = 'result-value error';
+    tokenResult.textContent = msg;
+    tokenResult.className = 'result-value error';
+    return;
+  }
+
+  // Encrypt
+  if (plainInput) {
+    try {
+      const tok = await fernetEncrypt(FERNET_KEY, plainInput);
+      tokenResult.textContent = tok;
+      tokenResult.className = 'result-value';
+    } catch (e) {
+      tokenResult.textContent = '錯誤：' + e.message;
+      tokenResult.className = 'result-value error';
+    }
+  }
+
+  // Decrypt
+  if (tokenInput) {
+    try {
+      const pt = await fernetDecrypt(FERNET_KEY, tokenInput);
+      plainResult.textContent = pt;
+      plainResult.className = 'result-value';
+    } catch (e) {
+      plainResult.textContent = '錯誤：' + e.message;
+      plainResult.className = 'result-value error';
+    }
+  }
+}
+</script>
+</body>
+</html>

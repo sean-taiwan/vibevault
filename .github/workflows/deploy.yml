@@ -1,0 +1,29 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject Fernet Key
+        run: python3 -c "
+import pathlib
+html = pathlib.Path('index.html').read_text(encoding='utf-8')
+html = html.replace('__FERNET_KEY__', '${{ secrets.FERNET_KEY }}')
+pathlib.Path('index.html').write_text(html, encoding='utf-8')
+"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          exclude_assets: '.github,vault.py,vault.py.bak,vault.enc,vault_export.txt,*.md'
