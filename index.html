@@ -108,12 +108,6 @@
   <h1>Vibe<span>Vault</span> Web Tool</h1>
   <hr>
 
-  <label for="masterPw">Master Password</label>
-  <input type="password" id="masterPw" placeholder="與 vault.py 相同的 Master Password...">
-
-  <label for="saltInput">Salt（可選，vault.enc 前 32 bytes 的 hex；留空則使用預設 salt）</label>
-  <input type="text" id="saltInput" placeholder="64 位 hex，例如 a1b2c3... （留空使用預設）">
-
   <label for="plainInput">明文密碼輸入</label>
   <input type="text" id="plainInput" placeholder="輸入要加密的明文...">
 
@@ -138,21 +132,6 @@
 
 <script>
 // PBKDF2 parameters — must match vault.py exactly
-<<<<<<< HEAD
-const PBKDF2_ITERATIONS = 600_000;
-const DEFAULT_SALT = new Uint8Array(32); // 32 zero bytes, used when no salt is provided
-
-// Derive a 32-byte Fernet key from master password + salt, same as vault.py's derive_key()
-async function deriveFernetKey(password, saltHex) {
-  let salt;
-  if (saltHex && saltHex.length === 64 && /^[0-9a-fA-F]+$/.test(saltHex)) {
-    salt = new Uint8Array(saltHex.match(/.{2}/g).map(b => parseInt(b, 16)));
-  } else {
-    salt = DEFAULT_SALT;
-  }
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
-=======
 const MASTER_PASSWORD = "Kizuki45";
 const VAULT_SALT_HEX  = "5f202d43e63d056b65d1d73eecc58f94def72355a59b1732c3f072223779936c";
 const PBKDF2_ITERATIONS = 600_000;
@@ -162,16 +141,11 @@ async function deriveFernetKey() {
   const salt = new Uint8Array(VAULT_SALT_HEX.match(/.{2}/g).map(b => parseInt(b, 16)));
   const keyMaterial = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(MASTER_PASSWORD), 'PBKDF2', false, ['deriveBits']
->>>>>>> d863b86 (Fix: hardcode PBKDF2 key derivation matching vault.py (password + vault salt))
   );
   const keyBits = await crypto.subtle.deriveBits(
     { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PBKDF2_ITERATIONS },
     keyMaterial, 256
   );
-<<<<<<< HEAD
-  // base64url-encode the 32 bytes → valid Fernet key (same as Python's base64.urlsafe_b64encode)
-=======
->>>>>>> d863b86 (Fix: hardcode PBKDF2 key derivation matching vault.py (password + vault salt))
   return base64urlEncode(new Uint8Array(keyBits));
 }
 
@@ -278,8 +252,6 @@ async function fernetDecrypt(keyB64url, tokenStr) {
 
 // ── UI ──────────────────────────────────────────────────────────────────────
 async function runCrypto() {
-  const masterPw   = document.getElementById('masterPw').value;
-  const saltInput  = document.getElementById('saltInput').value.trim();
   const plainInput = document.getElementById('plainInput').value.trim();
   const tokenInput = document.getElementById('tokenInput').value.trim();
   const plainResult = document.getElementById('plainResult');
@@ -291,18 +263,6 @@ async function runCrypto() {
   tokenResult.textContent = '—';
   tokenResult.className = 'result-value muted';
 
-<<<<<<< HEAD
-  if (!masterPw) {
-    const msg = '請輸入 Master Password';
-    plainResult.textContent = msg;
-    plainResult.className = 'result-value error';
-    tokenResult.textContent = msg;
-    tokenResult.className = 'result-value error';
-    return;
-  }
-
-=======
->>>>>>> d863b86 (Fix: hardcode PBKDF2 key derivation matching vault.py (password + vault salt))
   if (!plainInput && !tokenInput) {
     plainResult.textContent = '請在上方輸入明文或 Token';
     plainResult.className = 'result-value error';
@@ -314,11 +274,7 @@ async function runCrypto() {
   // Derive key (PBKDF2, same as vault.py)
   let fernetKey;
   try {
-<<<<<<< HEAD
-    fernetKey = await deriveFernetKey(masterPw, saltInput);
-=======
     fernetKey = await deriveFernetKey();
->>>>>>> d863b86 (Fix: hardcode PBKDF2 key derivation matching vault.py (password + vault salt))
   } catch (e) {
     const msg = 'Key 衍生失敗：' + e.message;
     plainResult.textContent = msg;
