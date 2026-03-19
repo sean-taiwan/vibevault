@@ -131,7 +131,7 @@
 </div>
 
 <script>
-const FERNET_KEY = "Kizuki45";
+const  = "____";
 
 // ── Base64url helpers ───────────────────────────────────────────────────────
 function base64urlDecode(str) {
@@ -247,7 +247,7 @@ async function runCrypto() {
   tokenResult.textContent = '—';
   tokenResult.className = 'result-value muted';
 
-  if (!FERNET_KEY || FERNET_KEY === 'Kizuki45') {
+  if (!FERNET_KEY) {
     const msg = '⚠ 尚未注入 FERNET_KEY（GitHub Actions 建置後才可使用）';
     plainResult.textContent = msg;
     plainResult.className = 'result-value error';
@@ -271,7 +271,7 @@ async function runCrypto() {
   // Decrypt
   if (tokenInput) {
     try {
-      const pt = await fernetDecrypt(FERNET_KEY, tokenInput);
+      const pt = await fernetDecrypt(, tokenInput);
       plainResult.textContent = pt;
       plainResult.className = 'result-value';
     } catch (e) {
