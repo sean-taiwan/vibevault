@@ -131,7 +131,7 @@
 </div>
 
 <script>
-const  = "____";
+const FERNET_KEY = "Kizuki45";
 
 // ── Base64url helpers ───────────────────────────────────────────────────────
 function base64urlDecode(str) {
@@ -279,7 +279,7 @@ async function runCrypto() {
   // Decrypt
   if (tokenInput) {
     try {
-      const pt = await fernetDecrypt(, tokenInput);
+      const pt = await fernetDecrypt(FERNET_KEY, tokenInput);
       plainResult.textContent = pt;
       plainResult.className = 'result-value';
     } catch (e) {
