@@ -16,13 +16,7 @@ jobs:
       - name: Inject Fernet Key
         env:
           FERNET_KEY: ${{ secrets.FERNET_KEY }}
-        run: |
-          python3 - <<'EOF'
-          import pathlib, os
-          html = pathlib.Path('index.html').read_text(encoding='utf-8')
-          html = html.replace('__FERNET_KEY__', os.environ['FERNET_KEY'])
-          pathlib.Path('index.html').write_text(html, encoding='utf-8')
-          EOF
+        run: python3 -c "import pathlib,os; p=pathlib.Path('index.html'); p.write_text(p.read_text(encoding='utf-8').replace('__FERNET_KEY__', os.environ['FERNET_KEY']), encoding='utf-8'); print('Injected OK')"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
