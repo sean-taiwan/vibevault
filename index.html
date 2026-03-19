@@ -108,12 +108,6 @@
   <h1>Vibe<span>Vault</span> Web Tool</h1>
   <hr>
 
-  <label for="masterPw">Master Password</label>
-  <input type="password" id="masterPw" placeholder="與 vault.py 相同的 Master Password...">
-
-  <label for="saltInput">Salt（可選，vault.enc 前 32 bytes 的 hex；留空則使用預設 salt）</label>
-  <input type="text" id="saltInput" placeholder="64 位 hex，例如 a1b2c3... （留空使用預設）">
-
   <label for="plainInput">明文密碼輸入</label>
   <input type="text" id="plainInput" placeholder="輸入要加密的明文...">
 
@@ -258,8 +252,6 @@ async function fernetDecrypt(keyB64url, tokenStr) {
 
 // ── UI ──────────────────────────────────────────────────────────────────────
 async function runCrypto() {
-  const masterPw   = document.getElementById('masterPw').value;
-  const saltInput  = document.getElementById('saltInput').value.trim();
   const plainInput = document.getElementById('plainInput').value.trim();
   const tokenInput = document.getElementById('tokenInput').value.trim();
   const plainResult = document.getElementById('plainResult');
